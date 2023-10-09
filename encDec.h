@@ -9,8 +9,9 @@ void addParity(char binaryArray[]);
 void sizeToBit(int size, char sizeArr[]);
 
 /* Data link layer*/
-char* frameData(int size, char dataArr[], char output[]);
+void frameData(int size, char dataArr[], char output[]);
 
+char* getFrameData(char fileName[]);
 /* Error module - to generate an error bit*/
 int randomNum(int left, int right);
 

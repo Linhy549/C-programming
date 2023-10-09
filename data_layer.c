@@ -11,8 +11,7 @@ int randomNum(int left, int right){
     return a;
 }
 
-char* frameData(int size, char dataArr[], char output[]){
-    // char final[600];
+void frameData(int size, char dataArr[], char buffer[]){
 
     char syn [600]= "0001011000010110";
 
@@ -21,12 +20,12 @@ char* frameData(int size, char dataArr[], char output[]){
 
     strcat(syn, sizeArr);
 
-    int cur = 0;
-    printf("\nThis is testing block:\n");
-    while(syn[cur] != '\0'){
-        printf("%c", syn[cur]);
-        cur++;
-    }
+    // int cur = 0;
+    // printf("\nThis is testing block:\n");
+    // while(syn[cur] != '\0'){
+    //     printf("%c", syn[cur]);
+    //     cur++;
+    // }
 
     printf("\n\n");
 
@@ -51,17 +50,23 @@ char* frameData(int size, char dataArr[], char output[]){
         // printf("2.Buffer size after: %zu\n", strlen(buffer));
 
     }
-    cur = 0;
-    printf("\nThis is second testing block:\n");
-    while(syn[cur] != '\0'){
-        printf("%c", syn[cur]);
-        cur++;
-    }
+    // cur = 0;
+    // printf("\nThis is second testing block:\n");
+    // while(syn[cur] != '\0'){
+    //     printf("%c", syn[cur]);
+    //     cur++;
+    // }
 
     printf("\n\n");
-    output = syn;
-    // free(buffer);
-    return output;
+    strcat(buffer, syn);
+
+    // cur = 0;
+    // printf("\nThis is third testing block:\n");
+    // while(buffer[cur] != '\0'){
+    //     printf("%c", buffer[cur]);
+    //     cur++;
+    // }
+    // printf("\nWhile Buffer address: %p\n", &buffer);
 }
 
 
