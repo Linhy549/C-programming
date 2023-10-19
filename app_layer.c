@@ -45,37 +45,32 @@ int readFile(int frameSize, char fileName[]){
         if(index == 64){
             dataArr[index] = '\0';
             index = 0;
-            char buffer[600];
+            char buffer[600] = "";
             frameData(64, dataArr, buffer);
-
-            // printf("1Frame %d: ", count);
-            count++;
-            for(char *ptr = buffer; *ptr != '\0'; ++ptr){
-                fwrite(ptr, sizeof(char), 1, binFile);
-                printf("%c", *ptr);
-            }
-            printf("\n");
+            printf("\nReady to write to file:\n");
+                int j = 0;
+                while(buffer[j]!= '\0'){
+                    printf("%c", buffer[j]);
+                    fputc(buffer[j], binFile);
+                    j++;
+                }
+            printf("\n\n");
         }
     }
 
     dataArr[index] = '\0';
     // printf("\n\n%s", dataArr);
-    char buffer[600];
+    char buffer[600] = "";
     frameData(leftBlocks, dataArr, buffer);
 
-    // printf("Frame %d: ", count);
-    // for(char *ptr = buffer; *ptr != '\0'; ++ptr){
-    //     printf("%c", *ptr);
-    //     fwrite(*ptr, sizeof(char), leftBlocks, binFile);
-    // }
-    // printf("#2 Ready to write to file...\n");
-    // fwrite(buffer, sizeof(char), leftBlocks * 8 + 24, binFile);
+    printf("\nRead to write to file:\n");
     int j = 0;
     while(buffer[j]!= '\0'){
+        printf("%c", buffer[j]);
         fputc(buffer[j], binFile);
         j++;
     }
-    printf("\n");
+    printf("\n\n");
 
     // free(buffer);
     fclose(binFile);
@@ -84,8 +79,32 @@ int readFile(int frameSize, char fileName[]){
     return 0;
 }
 
-int main(int argc, char *argv[]){ 
-    // printf("IN appl");
-    readFile(64, argv[1]);
+char* getFrameData(char fileName[]){
+    int charInFile = countCharInFile(fileName);
+
+    FILE *file = fopen(fileName, "r");
+    char* buffer = (char*)malloc(charInFile * sizeof(char));
+    int c;
+    int index = 0;
+
+    while((c = getc(file)) != EOF){
+        buffer[index] = c;
+        index++;
+    }
+    // int length = strlen(buffer)
+    // printf("\n# of data in file: %s", strlen(buffer));
+    
+    return buffer;
+
 }
+
+// int main(int argc, char *argv[]){ 
+//     // readFile(64, argv[1]);
+//     char* buffer = getFrameData("filename.binf");
+//     // FILE * file = fopen("file.out", "wb");
+//     // int length = strlen(buffer);
+//     // fwrite(buffer, sizeof(char), length - 2, file);
+//     // free(buffer);
+//     // fclose(file);
+// }
 
