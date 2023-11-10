@@ -20,13 +20,6 @@ void frameData(int size, char dataArr[], char buffer[]){
 
     strcat(syn, sizeArr);
 
-    // int cur = 0;
-    // printf("\nThis is testing block:\n");
-    // while(syn[cur] != '\0'){
-    //     printf("%c", syn[cur]);
-    //     cur++;
-    // }
-
     printf("\n\n");
 
     
@@ -50,23 +43,11 @@ void frameData(int size, char dataArr[], char buffer[]){
         // printf("2.Buffer size after: %zu\n", strlen(buffer));
 
     }
-    // cur = 0;
-    // printf("\nThis is second testing block:\n");
-    // while(syn[cur] != '\0'){
-    //     printf("%c", syn[cur]);
-    //     cur++;
-    // }
+
 
     printf("\n\n");
     strcat(buffer, syn);
 
-    // cur = 0;
-    // printf("\nThis is third testing block:\n");
-    // while(buffer[cur] != '\0'){
-    //     printf("%c", buffer[cur]);
-    //     cur++;
-    // }
-    // printf("\nWhile Buffer address: %p\n", &buffer);
 }
 
 

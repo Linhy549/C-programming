@@ -8,15 +8,20 @@
 #include <pthread.h>
 #include <time.h>
 #include <ctype.h>
+#include "encDec.h"
 
 # define ID_LENGTH 9
-int clientfd2;//客户端socket
+int clientfd2;
 char client_name[30];
-char *IP = "127.0.0.1"; // 服务器的IP
-short PORT = 6666;//服务器服务端口
+char *IP = "127.0.0.1"; 
+short PORT = 6666;
 typedef struct sockaddr meng;
-char name[30];//设置支持的用户名长度
+char name[30];
 time_t nowtime;
+
+int hamming_flag = 1;
+int crc_flag = 1;
+int error_flag = 1;
 
 struct Protocol {
     char LOG[6]; // Size includes space for the null-terminator
@@ -52,54 +57,6 @@ struct Protocol {
               "<BODY>", "</BODY>",
  };
 
-void start(){
-
-    pthread_t id;
-    void* recv_thread(void*);
-
-    //创建一个线程用于数据的接收，一个用于数据的发送
-
-    pthread_create(&id,0,recv_thread,0);
-
-    char buf2[100] = {};
-
-    sprintf(buf2,"%s进入了群聊",name);
-
-    time(&nowtime);
-
-    printf("进入的时间是: %s\n",ctime(&nowtime));
-
-    send(clientfd2,buf2,strlen(buf2),0);
-
-    while(1){
-
-        char buf[100];
-
-        scanf("%s",buf);
-
-        char msg[500] = {};
-
-        sprintf(msg,"%s发送的信息是:%s ",name,buf);
-
-        send(clientfd2,msg,strlen(msg),0);
-
-        if (strcmp(buf,"quit") == 0){
-
-            memset(buf2,0,sizeof(buf2));//初始化
-
-            sprintf(buf2,"%s退出了群聊",name);
-
-            send(clientfd2,buf2,strlen(buf2),0);
-
-            break;
-
-        }
-
-    }
-
-    close(clientfd2);
-
-}
 
 void LoginList_Pro(char buf[]){
     char* startTag = strstr(buf, protocol.LOGIN_LIST);
@@ -131,32 +88,36 @@ void MSG_Pro(){
     printf("Enter user-id you want to chat: ");
     scanf("%s", user_id);
     printf("Enter message: ");
-    scanf("%s", msg);
+    scanf(" %[^\n]", msg);
 
-    FILE *file = fopen("set.txt", "rb"); // Open the file in binary mode
+    char msg1[500];
+    msg1[0] = '\0';
+    frameData((int)strlen(msg), msg, msg1);
 
-    if (file == NULL) {
-        perror("Error opening file");
-        return 1;
+    char pre[25];
+    char rem[(int)strlen(msg1) - 23];
+    printf("msg1: %s\n",msg1);
+    if(crc_flag == 1){
+        strncpy(pre, msg1, 24);
+        pre[24] = '\0'; // Null-terminate fix
+        strcpy(rem, msg1 + 24);
+        //
+        char crc[10];  // Adjust the size based on your CRC polynomial
+        char divisor[5] = "1101";
+        generateCRC(rem, crc, divisor);
+        // printf("Generated CRC: %s\n", crc);
+        // printf("pre: %s\n rem: %s\n", pre, rem);
+
+        // Simulate transmission by appending CRC to data
+        strcat(rem, crc);
+
+        msg1[500];
+        msg1[0];
+        strcat(msg1, pre);
+        strcat(msg1, rem);
+
     }
 
-    // Determine the file size
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    // Allocate memory for the data
-    char data[file_size + 1]; // +1 for null terminator
-
-    // Read the file into the data array
-    fread(data, sizeof(char), file_size, file);
-    data[file_size] = '\0'; // Null-terminate the data
-
-    // Close the file
-    fclose(file);
-
-    // Print or use the read data
-    // printf("Read data:\n%s\n", data);
 
     strcat(frame, protocol.MSG);
     strcat(frame, protocol.FROM);
@@ -198,8 +159,17 @@ void MSG_Pro_Get(char arr[]){
     printf("%s to you: %s\n", c1, text);
 }
 
+void Logout_Pro(){
+    char buff[50];
+    buff[0] = '\0';
+    strcat(buff, protocol.LOGOUT);
+    strcat(buff, client_name);
+    strcat(buff, protocol.LOGOUT_END);
+    send(clientfd2, buff, strlen(buff), 0);
+}
+
 void* recv_thread(void* p){
-    printf("#Log - Client recv thread creating...\n");
+
     while(1){
 
         char buf[500] = {};
@@ -220,16 +190,14 @@ void* recv_thread(void* p){
 }
 
 int check_id(char *id){
-    clientfd2 = socket(PF_INET,SOCK_STREAM,0);//创建套接字
-    struct sockaddr_in addr;//将套接字存在sockaddr_in结构体中
-    addr.sin_family = PF_INET;//地址族
-    addr.sin_port = htons(PORT);//端口号 可随意设置，不过不可超过规定的范围
-    addr.sin_addr.s_addr = inet_addr(IP);//inet_addr()函数将点分十进制的字符串转换为32位的网络字节顺序的ip信息
+    clientfd2 = socket(PF_INET,SOCK_STREAM,0);
+    struct sockaddr_in addr;
+    addr.sin_family = PF_INET;
+    addr.sin_port = htons(PORT);
+    addr.sin_addr.s_addr = inet_addr(IP);
 
-    //发起连接
     if (connect(clientfd2,(meng*)&addr,sizeof(addr)) == -1){
 
-        perror("无法连接到服务器");
         exit(-1);
 
     }
@@ -243,7 +211,7 @@ int check_id(char *id){
 
     char loginFlag[2];
     recv(clientfd2,loginFlag,strlen(loginFlag),0);
-    printf("#Log- Recv loginFlag: %s\n", loginFlag);
+    // printf("#Log- Recv loginFlag: %s\n", loginFlag);
     strcpy(client_name, id);
 
     if (1)
@@ -258,16 +226,14 @@ int check_id(char *id){
     }
 }
 
-void getAll(){
-    // send(clientfd2,id,strlen(id),0);
-}
-
 int main(){
     int loop = 1;
     while(loop){
         printf("=== Welcome to One-One chat Application ===\n");
-        printf("1. Login\n");
-        printf("2. Exit\n");
+        printf("1. Login with CRC\n");
+        printf("2. Login with Hamming\n");
+        printf("3. Login with Hamming & CRC\n");
+        printf("4. Exit\n");
         printf("Please enter: ");
 
         int option;
@@ -292,7 +258,7 @@ int main(){
                         printf("1. Show online users\n");
                         printf("2. Private-chat\n");
                         printf("3. Exit\n");
-                        printf("Please enter: ");
+                        printf("Please enter: \n");
 
                         scanf("%d", &option);
 
@@ -316,6 +282,7 @@ int main(){
                                 break;
                             case 3:
                                 printf("exit\n");
+                                Logout_Pro();
                                 close(clientfd2);
                                 loop2 = 0;
                                 break;
@@ -329,6 +296,108 @@ int main(){
                 break;
 
             case 2:
+                id[ID_LENGTH]; // id 8-bits long
+                printf("\nPlease enter your ID: ");
+                scanf("%s", id);
+                printf("\nYour Id: %s\n", id);
+
+
+                if(check_id(id)){
+
+                    int loop2 = 1;
+
+                    while(loop2) {
+                        printf("=== User Id: %s ===\n", id);
+                        printf("1. Show online users\n");
+                        printf("2. Private-chat\n");
+                        printf("3. Exit\n");
+                        printf("Please enter: \n");
+
+                        scanf("%d", &option);
+
+                        
+
+                        switch (option)
+                        {
+                            case 1:
+                                char buf[500] = {};
+                                strcat(buf, protocol.LOGIN_LIST);
+                                strcat(buf, client_name);
+                                strcat(buf, protocol.LOGIN_LIST_END);
+
+                                send(clientfd2, buf, strlen(buf), 0);
+                                break;
+                            case 2:
+                                MSG_Pro();
+                                break;
+                            case 3:
+                                printf("exit\n");
+                                Logout_Pro();
+                                close(clientfd2);
+                                loop2 = 0;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                } else {
+                    printf("=== Invalid Id ===\n");
+                }
+                break;
+            case 3:     
+                id[ID_LENGTH]; // id 8-bits long
+                printf("\nPlease enter your ID: ");
+                scanf("%s", id);
+                printf("\nYour Id: %s\n", id);
+
+
+                if(check_id(id)){
+
+                    int loop2 = 1;
+
+                    while(loop2) {
+                        printf("=== User Id: %s ===\n", id);
+                        printf("1. Show online users\n");
+                        printf("2. Private-chat\n");
+                        printf("3. Exit\n");
+                        printf("Please enter: \n");
+
+                        scanf("%d", &option);
+
+                        
+
+                        switch (option)
+                        {
+                            case 1:
+                                char buf[500] = {};
+                                printf("Show online users - fun\n");
+                                strcat(buf, protocol.LOGIN_LIST);
+                                strcat(buf, client_name);
+                                strcat(buf, protocol.LOGIN_LIST_END);
+                                printf("socket : %d\n", clientfd2);
+                                printf("mes : %s\n", buf);
+                                send(clientfd2, buf, strlen(buf), 0);
+                                break;
+                            case 2:
+                                printf("Private-chat - fun\n");
+                                MSG_Pro();
+                                break;
+                            case 3:
+                                printf("exit\n");
+                                Logout_Pro();
+                                close(clientfd2);
+                                loop2 = 0;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                } else {
+                    printf("=== Invalid Id ===\n");
+                }
+                break;
+
+            case 4:
                 printf("Exit\n");
                 loop = 0;
                 break;
@@ -337,8 +406,6 @@ int main(){
         }
     }
 
-
-    start();
 
     return 0;
 
