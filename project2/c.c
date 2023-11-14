@@ -79,42 +79,60 @@ void LoginList_Pro(char buf[]){
 }
 
 void MSG_Pro(){
-    char user_id[9];
-    char msg[500] = {};
+
+    char user_id[9] = {};
+    user_id[0] = '\0';
+    char msg[500];
+    msg[0] = '\0';
     char frame[700] = {};
     frame[0] = '\0';
-    msg[0] = '\0';
-    printf("\n====================\n");
-    printf("Enter user-id you want to chat: ");
-    scanf("%s", user_id);
-    printf("Enter message: ");
-    scanf(" %[^\n]", msg);
 
-    char msg1[500];
+
+    printf("Enter user-id you want to chat: ");
+    fgets(user_id, sizeof(user_id), stdin);
+    fgets(user_id, sizeof(user_id), stdin);
+
+    printf("Enter message: ");
+    fgets(msg, sizeof(msg), stdin);
+    fgets(msg, sizeof(msg), stdin);
+
+
+    for (int i = 0; msg[i] != '\0'; i++) {
+        if (msg[i] == '\n') {
+            msg[i] = '\0';
+        }
+    }
+
+    char msg1[(int)strlen(msg) * 8 + 24 + 1];
     msg1[0] = '\0';
     frameData((int)strlen(msg), msg, msg1);
 
+    
+
     char pre[25];
-    char rem[(int)strlen(msg1) - 23];
-    printf("msg1: %s\n",msg1);
+    char rem[(int)strlen(msg1) + 5 - 23];
+    char final_data[(int)strlen(msg) * 8 + 24 + 1 + 4];
+    final_data[0] = '\0';
     if(crc_flag == 1){
         strncpy(pre, msg1, 24);
         pre[24] = '\0'; // Null-terminate fix
         strcpy(rem, msg1 + 24);
+
         //
         char crc[10];  // Adjust the size based on your CRC polynomial
         char divisor[5] = "1101";
         generateCRC(rem, crc, divisor);
-        // printf("Generated CRC: %s\n", crc);
+        printf("Generated CRC: %s\n", crc);
         // printf("pre: %s\n rem: %s\n", pre, rem);
 
         // Simulate transmission by appending CRC to data
-        strcat(rem, crc);
+        // strcat(rem, crc);
 
-        msg1[500];
-        msg1[0];
-        strcat(msg1, pre);
-        strcat(msg1, rem);
+        // msg1[500];
+        // msg1[0];
+        strcat(final_data, pre);
+        strcat(final_data, rem);
+        strcat(final_data, crc);
 
     }
 
@@ -127,23 +145,104 @@ void MSG_Pro(){
     strcat(frame, user_id);
     strcat(frame, protocol.TO_END);
     strcat(frame, protocol.BODY);
-    strcat(frame, msg);
+    if(error_flag){
+        errorInsert(final_data);
+        error_flag = 0;
+    }
+    // errorInsert(final_data);
+    strcat(frame, final_data);
     strcat(frame, protocol.BODY_END);
     strcat(frame, protocol.MSG_END);
 
-
+    printf("data: %s\n", frame);
     send(clientfd2, frame, strlen(frame), 0);
 }
 
+void MSG_Pro_dataSet(){
+    FILE *file = fopen("dataset.txt", "rb");
+    if (file == NULL) {
+        perror("Error opening file");
+    }
+    char user_id[9] = {};
+    user_id[0] = '\0';
+    // fflush(stdin);
+    printf("Enter user-id you want to chat: ");
+    fgets(user_id, sizeof(user_id), stdin);
+    fgets(user_id, sizeof(user_id), stdin);
+
+    char msg[65];
+
+    size_t bytesRead;
+
+    while ((bytesRead = fread(msg, 1, 64, file)) > 0) {
+        char frame[700] = {};
+        frame[0] = '\0';
+        msg[bytesRead] = '\0'; // Null-terminate the buffer
+
+        char user_id[9] = {};
+        user_id[0] = '\0';
+
+        char msg1[(int)strlen(msg) * 8 + 24 + 1];
+        msg1[0] = '\0';
+        frameData((int)strlen(msg), msg, msg1);
+
+        char pre[25];
+        char rem[(int)strlen(msg1) + 5 - 23];
+        char final_data[(int)strlen(msg) * 8 + 24 + 1 + 4];
+        final_data[0] = '\0';
+
+        strncpy(pre, msg1, 24);
+        pre[24] = '\0'; // Null-terminate fix
+        strcpy(rem, msg1 + 24);
+
+        //
+        char crc[10];  // Adjust the size based on your CRC polynomial
+        char divisor[5] = "1101";
+        generateCRC(rem, crc, divisor);
+        printf("Generated CRC: %s\n", crc);
+        // printf("pre: %s\n rem: %s\n", pre, rem);
+
+        // Simulate transmission by appending CRC to data
+        // strcat(rem, crc);
+
+        // msg1[500];
+        // msg1[0];
+        strcat(final_data, pre);
+        strcat(final_data, rem);
+        strcat(final_data, crc);
+
+
+        strcat(frame, protocol.MSG);
+        strcat(frame, protocol.FROM);
+        strcat(frame, client_name);
+        strcat(frame, protocol.FROM_END);
+        strcat(frame, protocol.TO);
+        strcat(frame, client_name);
+        strcat(frame, protocol.TO_END);
+        strcat(frame, protocol.BODY);
+        strcat(frame, final_data);
+        strcat(frame, protocol.BODY_END);
+        strcat(frame, protocol.MSG_END);
+
+        printf("data: %s\n", frame);
+        send(clientfd2, frame, strlen(frame), 0);
+        // Send the chunk via the socket
+        // if (send(socket, buffer, bytesRead, 0) == -1) {
+        //     perror("Error sending data");
+        //     break;
+        // }
+    }
+}
+
 void MSG_Pro_Get(char arr[]){
-    char c1[20], c2[20], text[100];
+    char c1[20], c2[20], text[(int)strlen(arr)];
     const char *fromStart = strstr(arr, protocol.FROM);
     const char *fromEnd = strstr(arr,protocol.FROM_END);
     const char *toStart = strstr(arr, protocol.TO);
     const char *toEnd = strstr(arr, protocol.TO_END);
     const char *bodyStart = strstr(arr, protocol.BODY);
     const char *bodyEnd = strstr(arr, protocol.BODY_END);
-    char frame[700] = {};
+    char frame[(int)strlen(arr)];
     frame[0] = '\0';
 
     if (fromStart != NULL && fromEnd != NULL) {
@@ -156,8 +255,40 @@ void MSG_Pro_Get(char arr[]){
         text[bodyEnd - (bodyStart + 6)] = '\0'; // Null-terminate the string
     }
 
-    printf("%s to you: %s\n", c1, text);
+    char pre[25];
+    char rem[(int)strlen(text) + 5 - 23];
+    char final_data[(int)strlen(text) * 8 + 24 + 1 + 4];
+    final_data[0] = '\0';
+
+    if(crc_flag == 1){
+        strncpy(pre, text, 24);
+        pre[24] = '\0'; // Null-terminate fix
+        strcpy(rem, text + 24);
+
+        char crc[10];  // Adjust the size based on your CRC polynomial
+        char divisor[5] = "1101";
+        // rem[sizeof(rem) - 6] = '1';
+        int errorDetected = detectCRC(rem, divisor);
+        if (errorDetected) {
+            printf("Error detected during CRC check!\n");
+        } else {
+            printf("No error detected during CRC check.\n");
+        }
+
+        // Remove crc from the end
+        int length = strlen(rem);
+        rem[length - 3] = '\0';
+
+        // Conver binary to Char
+        char buffer[length / 8 + 1];
+        deframeData(rem, buffer);
+
+        printf("%s to you: %s\n", c1, buffer);
+    }
+
+    printf("%s to you: %s\n", c1, rem);
 }
+
 
 void Logout_Pro(){
     char buff[50];
@@ -172,7 +303,7 @@ void* recv_thread(void* p){
 
     while(1){
 
-        char buf[500] = {};
+        char buf[1000] = {};
 
         if (recv(clientfd2,buf,sizeof(buf),0) <= 0){
             break;
@@ -239,15 +370,13 @@ int main(){
         int option;
 
         scanf("%d", &option);
-        
-        switch(option) 
+        switch (option)
         {
             case 1:
                 char id[ID_LENGTH]; // id 8-bits long
                 printf("\nPlease enter your ID: ");
                 scanf("%s", id);
-                printf("\nYour Id: %s\n", id);
-
+                // printf("\nYour Id: %s\n", id);
 
                 if(check_id(id)){
 
@@ -257,12 +386,11 @@ int main(){
                         printf("=== User Id: %s ===\n", id);
                         printf("1. Show online users\n");
                         printf("2. Private-chat\n");
-                        printf("3. Exit\n");
+                        printf("3. Test-data set\n");
+                        printf("4. Exit\n");
                         printf("Please enter: \n");
 
                         scanf("%d", &option);
-
-                        
 
                         switch (option)
                         {
@@ -277,10 +405,13 @@ int main(){
                                 send(clientfd2, buf, strlen(buf), 0);
                                 break;
                             case 2:
-                                printf("Private-chat - fun\n");
+                                
                                 MSG_Pro();
                                 break;
                             case 3:
+                                MSG_Pro_dataSet();
+                                break;
+                            case 4:
                                 printf("exit\n");
                                 Logout_Pro();
                                 close(clientfd2);
@@ -296,105 +427,10 @@ int main(){
                 break;
 
             case 2:
-                id[ID_LENGTH]; // id 8-bits long
-                printf("\nPlease enter your ID: ");
-                scanf("%s", id);
-                printf("\nYour Id: %s\n", id);
-
-
-                if(check_id(id)){
-
-                    int loop2 = 1;
-
-                    while(loop2) {
-                        printf("=== User Id: %s ===\n", id);
-                        printf("1. Show online users\n");
-                        printf("2. Private-chat\n");
-                        printf("3. Exit\n");
-                        printf("Please enter: \n");
-
-                        scanf("%d", &option);
-
-                        
-
-                        switch (option)
-                        {
-                            case 1:
-                                char buf[500] = {};
-                                strcat(buf, protocol.LOGIN_LIST);
-                                strcat(buf, client_name);
-                                strcat(buf, protocol.LOGIN_LIST_END);
-
-                                send(clientfd2, buf, strlen(buf), 0);
-                                break;
-                            case 2:
-                                MSG_Pro();
-                                break;
-                            case 3:
-                                printf("exit\n");
-                                Logout_Pro();
-                                close(clientfd2);
-                                loop2 = 0;
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                } else {
-                    printf("=== Invalid Id ===\n");
-                }
+                
                 break;
             case 3:     
-                id[ID_LENGTH]; // id 8-bits long
-                printf("\nPlease enter your ID: ");
-                scanf("%s", id);
-                printf("\nYour Id: %s\n", id);
-
-
-                if(check_id(id)){
-
-                    int loop2 = 1;
-
-                    while(loop2) {
-                        printf("=== User Id: %s ===\n", id);
-                        printf("1. Show online users\n");
-                        printf("2. Private-chat\n");
-                        printf("3. Exit\n");
-                        printf("Please enter: \n");
-
-                        scanf("%d", &option);
-
-                        
-
-                        switch (option)
-                        {
-                            case 1:
-                                char buf[500] = {};
-                                printf("Show online users - fun\n");
-                                strcat(buf, protocol.LOGIN_LIST);
-                                strcat(buf, client_name);
-                                strcat(buf, protocol.LOGIN_LIST_END);
-                                printf("socket : %d\n", clientfd2);
-                                printf("mes : %s\n", buf);
-                                send(clientfd2, buf, strlen(buf), 0);
-                                break;
-                            case 2:
-                                printf("Private-chat - fun\n");
-                                MSG_Pro();
-                                break;
-                            case 3:
-                                printf("exit\n");
-                                Logout_Pro();
-                                close(clientfd2);
-                                loop2 = 0;
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                } else {
-                    printf("=== Invalid Id ===\n");
-                }
+                
                 break;
 
             case 4:

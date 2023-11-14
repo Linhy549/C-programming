@@ -24,8 +24,8 @@ void frameData(int size, char dataArr[], char buffer[]){
     strcat(temp, sizeArr);
 
 
-    int num1 = randomNum(0, size - 1);
-    int num2 = randomNum(0, 7);
+    // int num1 = randomNum(0, size - 1);
+    // int num2 = randomNum(0, 7);
 
     
     size_t totalSize = strlen(syn) + strlen(sizeArr) + 8 * size + 1; // +1 for null-terminator
@@ -43,7 +43,7 @@ void frameData(int size, char dataArr[], char buffer[]){
     for(int i = 0; i < size; i++){
         char binaryArray[9];
         charToBinary(dataArr[i], binaryArray);
-        addParity(binaryArray);
+        // addParity(binaryArray);
 
         /*Error inset*/
         // if(num1 == i){
@@ -57,21 +57,30 @@ void frameData(int size, char dataArr[], char buffer[]){
     }
     // printf("%s\n", combined);
     strcat(buffer, combined);
+    combined[sizeof(combined) - 1] = '\0';
 }
 
-void deframeData(char arr[]){
-    size_t length = strlen(arr);
+void deframeData(char arr[], char buffer[]){
+    int length = strlen(arr);
 
-    if (length >= 24) {
-        memmove(arr, arr + 24, length - 24 + 1);
-    } else {
-
-        arr[0] = '\0';  
+    int j = 0;
+    for (int i = 0; i < length; i += 8){
+        char temp[9];
+        strncpy(temp, arr + i, 8);
+        temp[8] = '\0';
+        char c = binToChar(temp);
+        buffer[j] = c;
+        j++;
     }
+
+    buffer[j] = '\0';
 }
 
 // Function to perform CRC generation
-void generateCRC(char data[], char crc[], char divisor[]) {
+void generateCRC(char input[], char crc[], char divisor[]) {
+    char data[strlen(input) + 1]; // +1 for the null terminator
+    strcpy(data, input);
+
     int dataLen = strlen(data);
     int divisorLen = strlen(divisor);
     
@@ -125,7 +134,7 @@ int detectCRC(char received[], char divisor[]) {
 void errorInsert(char arr[]) {
     size_t length = strlen(arr);
 
-
+    printf("\n\n Before Insert Error Bit: %s\n", arr);
     // Flip one random bit after the first 24 bits
     srand(time(NULL));
     size_t flipIndex = 24 + rand() % (length - 24);
@@ -133,4 +142,5 @@ void errorInsert(char arr[]) {
 
     // Print the index where the bit has been flipped
     printf("Bit flipped at index within Data block: %zu\n", flipIndex - 24);
+    printf("\n After Insert Error Bit: %s\n", arr);
 }

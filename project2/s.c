@@ -62,11 +62,6 @@ struct ClientInfo {
 
 struct ClientInfo clients[6];
 
-int randomNum(int left, int right){
-    srand(((unsigned)time(NULL)) + (unsigned)rand());
-    int a = rand() % (right - left + 1) + left;
-    return a;
-}
 
 void store_chat(char c1[], char c2[], char msg[]) {
     // Create a buffer for the file name (C1C2.txt)
@@ -164,14 +159,14 @@ void Login_List_Pro(void* p){
 }
 
 void MSG_Pro(char arr[]) {
-    char c1[20], c2[20], text[100];
+    char c1[20], c2[20], text[(int)strlen(arr) + 1];
     const char *fromStart = strstr(arr, protocol.FROM);
     const char *fromEnd = strstr(arr,protocol.FROM_END);
     const char *toStart = strstr(arr, protocol.TO);
     const char *toEnd = strstr(arr, protocol.TO_END);
     const char *bodyStart = strstr(arr, protocol.BODY);
     const char *bodyEnd = strstr(arr, protocol.BODY_END);
-    char frame[500] = {};
+    char frame[(int)strlen(arr) + 1];
     frame[0] = '\0';
 
     if (fromStart != NULL && fromEnd != NULL) {
@@ -200,24 +195,12 @@ void MSG_Pro(char arr[]) {
     strcat(frame, text);
     strcat(frame, protocol.BODY_END);
     strcat(frame, protocol.MSG_END);
+    frame[sizeof(frame) - 1] = '\0';
 
-    char f[500] = {};
-    f[0] = '\0';
-    strcat(f, protocol.MSG);
-    strcat(f, protocol.FROM);
-    strcat(f, c2);
-    strcat(f, protocol.FROM_END);
-    strcat(f, protocol.TO);
-    strcat(f, c1);
-    strcat(f, protocol.TO_END);
-    strcat(f, protocol.BODY);
-    strcat(f, "00010110000101100000010011000010010000110100001111000001");
-    strcat(f, protocol.BODY_END);
-    strcat(f, protocol.MSG_END);
-    printf("Recv :%s\n", f);
-    int a = randomNum(0, 4);
-    printf("Error has been detected in index %d\n", a);
-    printf("Hamming correct\n");
+    // printf("Recv :%s\n", f);
+    // int a = randomNum(0, 4);
+    // printf("Error has been detected in index %d\n", a);
+    // printf("Hamming correct\n");
 
     for (int i = 0; i < 6; i++)
     {

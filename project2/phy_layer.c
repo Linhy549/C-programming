@@ -26,3 +26,12 @@ void sizeToBit(int size, char sizeArr[]){
     
 }
 
+char binToChar(char arr[]){
+    int decimalValue = 0;
+    for (int i = 0; i < 8; i++) {
+        decimalValue = (decimalValue << 1) | (arr[i] - '0');
+    }
+
+    // Convert decimal to char
+    return (char)decimalValue;
+}

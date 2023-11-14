@@ -8,10 +8,12 @@ void addParity(char binaryArray[]);
 
 void sizeToBit(int size, char sizeArr[]);
 
+char binToChar(char arr[]);
+
 /* Data link layer*/
 void frameData(int size, char dataArr[], char output[]);
 
-void deframeData(char arr[]);
+void deframeData(char arr[], char buffer[]);
 
 void errorInsert(char arr[]);
 
