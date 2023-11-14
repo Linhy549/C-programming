@@ -24,8 +24,8 @@ int crc_flag = 1;
 int error_flag = 1;
 
 struct Protocol {
-    char LOG[6]; // Size includes space for the null-terminator
-    char LOG_END[10];
+    char LOGIN[8]; // Size includes space for the null-terminator
+    char LOGIN_END[12];
     
     char MSG[6];
     char MSG_END[8];
@@ -47,7 +47,7 @@ struct Protocol {
     
     char BODY[7];
     char BODY_END[11];
-} protocol = {"<LOG>", "</LOG>",
+} protocol = {"<LOGIN>", "</LOGIN>",
               "<MSG>", "</MSG>",
               "<LOGOUT>", "</LOGOUT>",
               "<LOGIN_LIST>", "</LOGIN_LIST>",
@@ -159,16 +159,21 @@ void MSG_Pro(){
 }
 
 void MSG_Pro_dataSet(){
+
+    char temp[9] = {};
+    temp[0] = '\0';
+    printf("Enter user-id you want to chat: \n");
+    fgets(temp, sizeof(temp), stdin);
+    fgets(temp, sizeof(temp), stdin);
+    
+    char user_id[9] = {};
+    strcpy(user_id, temp);
+    printf("You have enter : %s\n", user_id);
     FILE *file = fopen("dataset.txt", "rb");
     if (file == NULL) {
         perror("Error opening file");
     }
-    char user_id[9] = {};
-    user_id[0] = '\0';
-    // fflush(stdin);
-    printf("Enter user-id you want to chat: ");
-    fgets(user_id, sizeof(user_id), stdin);
-    fgets(user_id, sizeof(user_id), stdin);
+    
 
     char msg[65];
 
@@ -217,7 +222,7 @@ void MSG_Pro_dataSet(){
         strcat(frame, client_name);
         strcat(frame, protocol.FROM_END);
         strcat(frame, protocol.TO);
-        strcat(frame, client_name);
+        strcat(frame, temp);
         strcat(frame, protocol.TO_END);
         strcat(frame, protocol.BODY);
         strcat(frame, final_data);
@@ -231,7 +236,31 @@ void MSG_Pro_dataSet(){
         //     perror("Error sending data");
         //     break;
         // }
+        sleep(1);
     }
+}
+
+
+void store_chat(char c1[], char c3[], char msg[]) {
+    char c2[] = "Result";
+    // Create a buffer for the file name (C1C2.txt)
+    char filename[50];
+    snprintf(filename, sizeof(filename), "%s%s.txt", c1, c2);
+
+    // Open the file for appending
+    FILE *file = fopen(filename, "a");
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
+    }
+    char buff[(int)strlen(ctime(&nowtime)) + (int)strlen(msg)];
+    strcat(buff, ctime(&nowtime));
+    strcat(buff, msg);
+    // Write the message to the file
+    fprintf(file, "%s\n", buff);
+
+    // Close the file
+    fclose(file);
 }
 
 void MSG_Pro_Get(char arr[]){
@@ -284,9 +313,10 @@ void MSG_Pro_Get(char arr[]){
         deframeData(rem, buffer);
 
         printf("%s to you: %s\n", c1, buffer);
+        store_chat(c1, c2, buffer);
     }
 
-    printf("%s to you: %s\n", c1, rem);
+    // printf("%s to you: %s\n", c1, rem);
 }
 
 
@@ -335,26 +365,35 @@ int check_id(char *id){
 
     char buff[30];
     buff[0] = '\0';
-    strcat(buff, protocol.LOG);
+    strcat(buff, protocol.LOGIN);
     strcat(buff, id);
-    strcat(buff, protocol.LOG_END);
+    strcat(buff, protocol.LOGIN_END);
     send(clientfd2, buff, strlen(buff), 0);
 
     char loginFlag[2];
     recv(clientfd2,loginFlag,strlen(loginFlag),0);
+
     // printf("#Log- Recv loginFlag: %s\n", loginFlag);
     strcpy(client_name, id);
 
-    if (1)
+    if (strlen(id) != 8)
     {
-        pthread_t tid;
-        pthread_create(&tid,0,recv_thread,&clientfd2);
-        return 1;
+        return 0;  // Check if the array length is not 8.
     }
-    else
-    {
-        return 0;
+
+    if (!isalpha(id[0])) {
+        return 0;  // Check if the first character is not a letter.
     }
+
+    for (int i = 1; i < 8; i++) {
+        if (!isdigit(id[i])) {
+            return 0;  // Check if the remaining characters are not digits.
+        }
+    }
+
+    pthread_t tid;
+    pthread_create(&tid,0,recv_thread,&clientfd2);
+    return 1;
 }
 
 int main(){
@@ -362,8 +401,8 @@ int main(){
     while(loop){
         printf("=== Welcome to One-One chat Application ===\n");
         printf("1. Login with CRC\n");
-        printf("2. Login with Hamming\n");
-        printf("3. Login with Hamming & CRC\n");
+        printf("2. Login with Hamming \n");
+        printf("3. Login with Hamming detection and correction\n");
         printf("4. Exit\n");
         printf("Please enter: ");
 
@@ -396,12 +435,12 @@ int main(){
                         {
                             case 1:
                                 char buf[500] = {};
-                                printf("Show online users - fun\n");
+                                
                                 strcat(buf, protocol.LOGIN_LIST);
                                 strcat(buf, client_name);
                                 strcat(buf, protocol.LOGIN_LIST_END);
-                                printf("socket : %d\n", clientfd2);
-                                printf("mes : %s\n", buf);
+                                // printf("socket : %d\n", clientfd2);
+                                // printf("mes : %s\n", buf);
                                 send(clientfd2, buf, strlen(buf), 0);
                                 break;
                             case 2:
@@ -422,7 +461,7 @@ int main(){
                         }
                     }
                 } else {
-                    printf("=== Invalid Id ===\n");
+                    printf("\n * Please enter  valid id *\n");
                 }
                 break;
 

@@ -69,29 +69,28 @@ void SendAll(char* msg){
 
             char buf[1024];
 
- 
 
-        FILE *logs = fopen("log.txt", "a+");
+            FILE *logs = fopen("log.txt", "a+");
 
-        if(logs== NULL)
+            if(logs== NULL)
 
-        {
+            {
 
-        printf("open file erroe: \n");
+            printf("open file erroe: \n");
 
-        }else{
+            }else{
 
-            sprintf(buf, "进入时间：%s\tIP地址：%s\n",ctime(&nowtime),IP);
+                sprintf(buf, "进入时间：%s\tIP地址：%s\n",ctime(&nowtime),IP);
 
-            fputs(buf,logs);
+                fputs(buf,logs);
 
-            sprintf(buf, "所发信息：%s\n",msg);
+                sprintf(buf, "所发信息：%s\n",msg);
 
-            fputs(buf,logs);
+                fputs(buf,logs);
 
-            fclose(logs);
+                fclose(logs);
 
-        }
+            }
 
             send(clientfd[i],msg,strlen(msg),0);
 
@@ -101,14 +100,25 @@ void SendAll(char* msg){
 
 }
 
-void* server_thread(struct ClientInfo client){
+void* server_thread(void *p){
 
-    // int fd = *(int*)p;
-    printf("Method address: %p\n",&client);
-
-    int fd = client.socket;
+    int fd = *(int*)p;
+    
+    printf("###\n");
+    printf("Log - create server_thread\n");
+    printf("Clients obj add: %p\n",&clients);
+    struct ClientInfo client;
+    for(int i = 0; i < 6; i++){
+        printf("fd: %d\n", fd);
+        printf("socket: %s\n", clients[i].name);
+        // if (clients[i].socket == fd){
+        //     client = clients[i];
+        //     printf("\t- User name: %s\n",client.name);
+        //     break;
+        // }
+    }
     int temp = client.socket;
-    printf("pthread = %d\n", temp);
+    printf("\t- pthread = %d\n", temp);
 
     while(1){
 
@@ -164,16 +174,17 @@ void* server_thread(struct ClientInfo client){
 void* login(void* p){
 
     int fd = *(int*)p;
+    printf("####\n");
     printf("Login - waiting user authenticate...\n");
     
     while(1){
         char buf[8] = {};
-        printf("waiting...\n");
+        printf("\t- waiting for user input\n");
         if (recv(fd, buf, sizeof(buf), 0) <= 0){
             break;
         }
         strcpy(clients[client_count].name, buf);
-        printf("Get name, done\n");
+        printf("\t- user input: %s\n", clients[client_count].name);
         break;
     }
     return NULL;
@@ -214,16 +225,16 @@ void server(){
                 clients[client_count].socket = fd;
                 clients[client_count].address = fromaddr;
 
-
+                printf("线程号= %d\n", clients[client_count].socket);
                 printf("线程号= %d\n", fd); //
                 printf("id address: %p\n", &clients[client_count]);
+                ++client_count;
                 //有客户端连接之后，启动线程给此客户服务
 
                 pthread_t tid;
                 pthread_create(&tid,0,login,&fd);
                 pthread_join(tid, NULL);
-                printf(" before id address: %p\n", &clients[client_count]);
-                pthread_create(&tid, 0, (void * (*)(void *))server_thread, &clients[client_count]);
+                pthread_create(&tid, NULL, server_thread, &fd);
                 // client_count = client_count + 1;
                 break;
 
