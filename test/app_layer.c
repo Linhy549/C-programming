@@ -15,6 +15,7 @@ int countCharInFile(char fileName[]){
     int c;
 
     while((c = getc(file)) != EOF){
+        // printf("%c###", c);
         count++;
     }
 
@@ -90,7 +91,9 @@ char* getFrameData(char fileName[]){
         buffer[index] = c;
         index++;
     }
-
+    // int length = strlen(buffer)
+    // printf("\n# of data in file: %s", strlen(buffer));
+    
     return buffer;
 
 }

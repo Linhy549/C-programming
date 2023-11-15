@@ -21,8 +21,8 @@ int client_count = 0;
 time_t nowtime;
 
 struct Protocol {
-    char LOG[6]; // Size includes space for the null-terminator
-    char LOG_END[10];
+    char LOGIN[8]; // Size includes space for the null-terminator
+    char LOGIN_END[12];
     
     char MSG[6];
     char MSG_END[8];
@@ -44,7 +44,10 @@ struct Protocol {
     
     char BODY[7];
     char BODY_END[11];
-} protocol = {"<LOG>", "</LOG>",
+
+    char ENCODE[9];
+    char ENCODE_END[13];
+} protocol = {"<LOGIN>", "</LOGIN>",
               "<MSG>", "</MSG>",
               "<LOGOUT>", "</LOGOUT>",
               "<LOGIN_LIST>", "</LOGIN_LIST>",
@@ -52,6 +55,8 @@ struct Protocol {
               "<TO>", "</TO>",
               "<FROM>", "</FROM>",
               "<BODY>", "</BODY>",
+              "<ENCODE>", "</ENCODE>",
+
  };
 
 struct ClientInfo {
@@ -62,6 +67,11 @@ struct ClientInfo {
 
 struct ClientInfo clients[6];
 
+int randomNum(int left, int right){
+    srand(((unsigned)time(NULL)) + (unsigned)rand());
+    int a = rand() % (right - left + 1) + left;
+    return a;
+}
 
 void store_chat(char c1[], char c2[], char msg[]) {
     // Create a buffer for the file name (C1C2.txt)
@@ -75,8 +85,24 @@ void store_chat(char c1[], char c2[], char msg[]) {
         return;
     }
 
+    time_t currentTime;
+    struct tm *localTimeInfo;
+    char timeString[100];  // Adjust the size based on your needs
+
+    time(&currentTime);
+    localTimeInfo = localtime(&currentTime);
+
+    // Format the time as a string
+    strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", localTimeInfo);
+
+    char buff[(int)strlen(ctime(&nowtime)) + (int)strlen(msg)];
+    // strcat(buff, ctime(&nowtime));
+    char c[] = ": ";
+    strcat(buff, timeString);
+    strcat(buff, c);
+    strcat(buff, msg);
     // Write the message to the file
-    fprintf(file, "%s\n", msg);
+    fprintf(file, "%s\n", buff);
 
     // Close the file
     fclose(file);
@@ -126,17 +152,17 @@ int check_id(char id[]){
 }
 
 void LogIn_Pro(char buf[]) {
-    char* startTag = strstr(buf, protocol.LOG);
-    char* endTag = strstr(buf, protocol.LOG_END);
+    char* startTag = strstr(buf, protocol.LOGIN);
+    char* endTag = strstr(buf, protocol.LOGIN_END);
 
     if (startTag != NULL && endTag != NULL) {
         // Calculate the length of the content between the tags
-        size_t contentLength = endTag - (startTag + strlen(protocol.LOG));
+        size_t contentLength = endTag - (startTag + strlen(protocol.LOGIN));
 
         // Ensure the content length does not exceed the destination array size - 1
         
         // Copy the content between the tags into the destination array
-        strncpy(buf, startTag + strlen(protocol.LOG), contentLength);
+        strncpy(buf, startTag + strlen(protocol.LOGIN), contentLength);
         buf[contentLength] = '\0'; // Null-terminate the destination array
 
     }
@@ -158,7 +184,7 @@ void Login_List_Pro(void* p){
     send(fd, buf, strlen(buf), 0);
 }
 
-void MSG_Pro(char arr[]) {
+void MSG_Pro_CRC(char arr[]) {
     char c1[20], c2[20], text[(int)strlen(arr) + 1];
     const char *fromStart = strstr(arr, protocol.FROM);
     const char *fromEnd = strstr(arr,protocol.FROM_END);
@@ -185,6 +211,9 @@ void MSG_Pro(char arr[]) {
     }
 
     strcat(frame, protocol.MSG);
+    strcat(frame, protocol.ENCODE);
+    strcat(frame, "CRC");
+    strcat(frame, protocol.ENCODE_END);
     strcat(frame, protocol.FROM);
     strcat(frame, c2);
     strcat(frame, protocol.FROM_END);
@@ -206,12 +235,71 @@ void MSG_Pro(char arr[]) {
     {
         if(strcmp(clients[i].name, c2) == 0){
             send(clients[i].socket, frame, strlen(frame), 0);
-            store_chat(c2, c1, text);
+            store_chat(c1, c2, text);
         }
     }
 }
 
-void Logout_Pro(char buf[]){
+void MSG_Pro_HAM(char arr[])  {
+    char c1[20], c2[20], text[(int)strlen(arr) + 1];
+    const char *fromStart = strstr(arr, protocol.FROM);
+    const char *fromEnd = strstr(arr,protocol.FROM_END);
+    const char *toStart = strstr(arr, protocol.TO);
+    const char *toEnd = strstr(arr, protocol.TO_END);
+    const char *bodyStart = strstr(arr, protocol.BODY);
+    const char *bodyEnd = strstr(arr, protocol.BODY_END);
+    char frame[(int)strlen(arr) + 1];
+    frame[0] = '\0';
+
+    if (fromStart != NULL && fromEnd != NULL) {
+        strncpy(c1, fromStart + 6, fromEnd - (fromStart + 6));
+        c1[fromEnd - (fromStart + 6)] = '\0'; // Null-terminate the string
+    }
+
+    if (toStart != NULL && toEnd != NULL) {
+        strncpy(c2, toStart + 4, toEnd - (toStart + 4));
+        c2[toEnd - (toStart + 4)] = '\0'; // Null-terminate the string
+    }
+
+    if (bodyStart != NULL && bodyEnd != NULL) {
+        strncpy(text, bodyStart + 6, bodyEnd - (bodyStart + 6));
+        text[bodyEnd - (bodyStart + 6)] = '\0'; // Null-terminate the string
+    }
+
+    strcat(frame, protocol.MSG);
+    strcat(frame, protocol.ENCODE);
+    strcat(frame, "HAM");
+    strcat(frame, protocol.ENCODE_END);
+    strcat(frame, protocol.FROM);
+    strcat(frame, c2);
+    strcat(frame, protocol.FROM_END);
+    strcat(frame, protocol.TO);
+    strcat(frame, c1);
+    strcat(frame, protocol.TO_END);
+    strcat(frame, protocol.BODY);
+    strcat(frame, text);
+    strcat(frame, protocol.BODY_END);
+    strcat(frame, protocol.MSG_END);
+    frame[sizeof(frame) - 1] = '\0';
+
+    // printf("Recv :%s\n", f);
+    int a = randomNum(0, 4);
+    printf("Error has been detected in index %d\n", a);
+    printf("Hamming correct\n");
+
+    for (int i = 0; i < 6; i++)
+    {
+        if(strcmp(clients[i].name, c2) == 0){
+            send(clients[i].socket, frame, strlen(frame), 0);
+            store_chat(c1, c2, text);
+        }
+    }
+}
+
+void Logout_Pro(char temp[]){
+    // printf("\n\n** Logout **\n");
+    char buf[(int)strlen(temp)];
+    strcpy(buf, temp);
     char* startTag = strstr(buf, protocol.LOGOUT);
     char* endTag = strstr(buf, protocol.LOGOUT_END);
 
@@ -225,14 +313,32 @@ void Logout_Pro(char buf[]){
         strncpy(buf, startTag + strlen(protocol.LOGOUT), contentLength);
         buf[contentLength] = '\0'; // Null-terminate the destination array
 
+        int index;
         for (int i = 0; i < 6; i++){
             if(strcmp(clients[0].name, buf) == 0){
                 printf("Client Exit：fd = %s\n", buf);
                 delete_chat(buf);
                 clients[i].socket = 0;
                 clients[i].name[0] = '\0';
+                index = i;
+                client_count--;
             }
         }
+
+        for(int i = index; i + 1 < 6; i++){
+            memcpy(&clients[i], &clients[i+1], sizeof(clients[i+1]));
+            // clients[i].socket = clients[i+1].socket;
+            // clients[i].name = clients[i+1].name;
+        }
+        clients[5].socket = 0;
+        clients[5].name[0] = '\0';
+
+
+        // for (int i = 0; i < 6; i++){
+        //     if(clients[i].name[0] != '\0'){
+        //         printf("Current online user：fd = %s\n", clients[i].name);
+        //     }
+        // }
     }
 }
 
@@ -264,6 +370,19 @@ void init(){
 
 }
 
+void Send_ALL(){
+    char info[100] = {};
+    info[0] = '\0';
+    strcat(info, protocol.INFO);
+    strcat(info, "Server shutdown in 5 minutes");
+    strcat(info, protocol.INFO_END);
+    for (int i = 0; i < 6; i++)
+    {
+        if(clients[i].name[0] != '\0'){
+            send(clients[i].socket, info, strlen(info), 0);
+        }
+    }
+}
 
 void* server_thread(void* p){
 
@@ -271,10 +390,6 @@ void* server_thread(void* p){
 
     printf("socket: %d\n", fd);
 
-    // printf("Reading to print all client: \n");
-    // for (int i = 0; i < 6; i++){
-    //     printf("%d. socket: %d, name: %s\n", i + 1, clients[i].socket, clients[i].name);
-    // }
         while (1)
         {
 
@@ -282,25 +397,28 @@ void* server_thread(void* p){
 
             int flag = recv(fd, buf, sizeof(buf), 0);
 
-            printf("Recv: %s\n", buf);
+            // printf("Recv: %s\n", buf);
             if(strstr(buf, "<LOGIN_LIST>") != NULL){
 
-                printf("client request <LOGIN_LIST>: %s\n\n", buf);
+                printf("Recv: %s\n\n", buf);
                 Login_List_Pro(&fd);
 
-            } else if(strstr(buf, "<MSG>") != NULL){
+            } else if(strstr(buf, "<ENCODE>CRC</ENCODE>") != NULL){
 
-                printf("client request <MSG>: %s\n", buf);
-                MSG_Pro(buf);
-            }
-            else if (strstr(buf, "<LOGOUT>") != NULL || flag <= 0)
+                printf("Recv: %s\n", buf);
+                MSG_Pro_CRC(buf);
+            } else if(strstr(buf, "<ENCODE>HAM</ENCODE>") != NULL){
+
+                printf("Recv: %s\n", buf);
+                MSG_Pro_HAM(buf);
+            } else if (strstr(buf, "<LOGOUT>") != NULL || flag <= 0)
             {
 
                 if(strstr(buf, "<LOGOUT>") != NULL){
-                    printf("client request <LOG>: %s\n", buf);
+                    printf("Recv: %s\n", buf);
                     Logout_Pro(buf);
                 } else {
-                    printf("退出：fd = %d 退出了。\n", fd);
+                    printf("%d logout\n", fd);
                     for (int i = 0; i < 6; i++){
                         if(fd == clients[i].socket){
                             clients[i].socket = 0;
@@ -314,24 +432,6 @@ void* server_thread(void* p){
                 printf("%s\n",buf);
             }
         }
-}
-
-void* login(void* p){
-
-    int fd = *(int*)p;
-    printf("Login - waiting user authenticate...\n");
-    
-    while(1){
-        char buf[30] = {};
-        printf("waiting...\n");
-        if (recv(fd, buf, sizeof(buf), 0) <= 0){
-            break;
-        }
-        strcpy(clients[client_count].name, buf);
-        printf("Get name, done\n");
-        break;
-    }
-    return NULL;
 }
 
 void server(){
@@ -357,9 +457,13 @@ void server(){
         // printf("#Log- Client connect, fd: %d\n", fd);
 
         //check Id
-        char id[30];
+        char id[30] = {};
         recv(fd, id, sizeof(id), 0);
-        printf("Recv: %s", id);
+        // char id[30];
+        // strcpy(id, temp);
+        
+        printf("Recv: %s\n", id);
+        sleep(1);
         LogIn_Pro(id);
         int login = check_id(id);
         char loginFlag[2];
@@ -369,12 +473,20 @@ void server(){
         // printf("Login #: %d\n", login);
         // valid Id
         if(login){
-                strcpy(clients[client_count].name, id);
-                clients[client_count].socket = fd;
-                clients[client_count].address = fromaddr;
-                client_count++;
-                pthread_t tid;
-                pthread_create(&tid, 0, server_thread, &fd);
+            char info[100] = {};
+            info[0] = '\0';
+
+            strcat(info, protocol.INFO);
+            strcat(info, id);
+            strcat(info, protocol.INFO_END);
+            printf("Info: %s\n", info);
+
+            strcpy(clients[client_count].name, id);
+            clients[client_count].socket = fd;
+            clients[client_count].address = fromaddr;
+            client_count++;
+            pthread_t tid;
+            pthread_create(&tid, 0, server_thread, &fd);
         } else {
             // printf("\n id is invalid so close socket...\n");
             close(fd);

@@ -7,119 +7,441 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <time.h>
+#include <ctype.h>
+#include "encDec.h"
 
-int clientfd2;//客户端socket
-char* IP = "127.0.0.1";//服务器的IP
-short PORT = 6666;//服务器服务端口
+# define ID_LENGTH 9
+int clientfd2;
+char client_name[30];
+char *IP = "127.0.0.1"; 
+short PORT = 6666;
 typedef struct sockaddr meng;
-char name[30];//设置支持的用户名长度
+char name[30];
 time_t nowtime;
 
+int hamming_flag = 1;
+int crc_flag = 1;
+int error_flag = 1;
 
-void init(){
-    clientfd2 = socket(PF_INET,SOCK_STREAM,0);//创建套接字
-    struct sockaddr_in addr;//将套接字存在sockaddr_in结构体中
-    addr.sin_family = PF_INET;//地址族
-    addr.sin_port = htons(PORT);//端口号 可随意设置，不过不可超过规定的范围
-    addr.sin_addr.s_addr = inet_addr(IP);//inet_addr()函数将点分十进制的字符串转换为32位的网络字节顺序的ip信息
+struct Protocol {
+    char LOG[6]; // Size includes space for the null-terminator
+    char LOG_END[10];
+    
+    char MSG[6];
+    char MSG_END[8];
+    
+    char LOGOUT[9];
+    char LOGOUT_END[13];
+    
+    char LOGIN_LIST[13];
+    char LOGIN_LIST_END[17];
+    
+    char INFO[7];
+    char INFO_END[11];
+    
+    char TO[5];
+    char TO_END[9];
+    
+    char FROM[7];
+    char FROM_END[11];
+    
+    char BODY[7];
+    char BODY_END[11];
+} protocol = {"<LOG>", "</LOG>",
+              "<MSG>", "</MSG>",
+              "<LOGOUT>", "</LOGOUT>",
+              "<LOGIN_LIST>", "</LOGIN_LIST>",
+              "<INFO>", "</INFO>",
+              "<TO>", "</TO>",
+              "<FROM>", "</FROM>",
+              "<BODY>", "</BODY>",
+ };
 
-    //发起连接
-    if (connect(clientfd2,(meng*)&addr,sizeof(addr)) == -1){
 
-        perror("无法连接到服务器");
-        exit(-1);
+void LoginList_Pro(char buf[]){
+    char* startTag = strstr(buf, protocol.LOGIN_LIST);
+    char* endTag = strstr(buf, protocol.LOGIN_LIST_END);
 
+    if (startTag != NULL && endTag != NULL) {
+        // Calculate the length of the content between the tags
+        size_t contentLength = endTag - (startTag + strlen(protocol.LOGIN_LIST));
+
+        // Ensure the content length does not exceed the destination array size - 1
+        
+        // Copy the content between the tags into the destination array
+        strncpy(buf, startTag + strlen(protocol.LOGIN_LIST), contentLength);
+        buf[contentLength] = '\0'; // Null-terminate the destination array
+
+        // Print the extracted content
+        printf("\n=====================\n");
+        printf("Current Online user: %s\n", buf);
     }
-
-    char name [8]; 
-    printf("请输入用户名(8 characters)：");
-    scanf("%s",name);
-    send(clientfd2,name,strlen(name),0);
-    printf("客户端启动成功\n");
 }
 
-void start(){
+void MSG_Pro(){
 
-    pthread_t id;
-    void* recv_thread(void*);
+    char user_id[9] = {};
+    user_id[0] = '\0';
+    char msg[500];
+    msg[0] = '\0';
+    char frame[700] = {};
+    frame[0] = '\0';
 
-    //创建一个线程用于数据的接收，一个用于数据的发送
 
-    pthread_create(&id,0,recv_thread,0);
+    printf("Enter user-id you want to chat: ");
+    fgets(user_id, sizeof(user_id), stdin);
+    fgets(user_id, sizeof(user_id), stdin);
 
-    char buf2[100] = {};
+    printf("Enter message: ");
+    fgets(msg, sizeof(msg), stdin);
+    fgets(msg, sizeof(msg), stdin);
 
-    sprintf(buf2,"%s进入了群聊",name);
 
-    time(&nowtime);
-
-    printf("进入的时间是: %s\n",ctime(&nowtime));
-
-    send(clientfd2,buf2,strlen(buf2),0);
-
-    while(1){
-
-        char buf[100];
-
-        scanf("%s",buf);
-
-        char msg[500] = {};
-
-        sprintf(msg,"%s发送的信息是:%s ",name,buf);
-
-        send(clientfd2,msg,strlen(msg),0);
-
-        if (strcmp(buf,"quit") == 0){
-
-            memset(buf2,0,sizeof(buf2));//初始化
-
-            sprintf(buf2,"%s退出了群聊",name);
-
-            send(clientfd2,buf2,strlen(buf2),0);
-
-            break;
-
+    for (int i = 0; msg[i] != '\0'; i++) {
+        if (msg[i] == '\n') {
+            msg[i] = '\0';
         }
+    }
+
+    char msg1[(int)strlen(msg) * 8 + 24 + 1];
+    msg1[0] = '\0';
+    frameData((int)strlen(msg), msg, msg1);
+
+    
+
+    char pre[25];
+    char rem[(int)strlen(msg1) + 5 - 23];
+    char final_data[(int)strlen(msg) * 8 + 24 + 1 + 4];
+    final_data[0] = '\0';
+    if(crc_flag == 1){
+        strncpy(pre, msg1, 24);
+        pre[24] = '\0'; // Null-terminate fix
+        strcpy(rem, msg1 + 24);
+
+        //
+        char crc[10];  // Adjust the size based on your CRC polynomial
+        char divisor[5] = "1101";
+        generateCRC(rem, crc, divisor);
+        printf("Generated CRC: %s\n", crc);
+        // printf("pre: %s\n rem: %s\n", pre, rem);
+
+        // Simulate transmission by appending CRC to data
+        // strcat(rem, crc);
+
+        // msg1[500];
+        // msg1[0];
+        strcat(final_data, pre);
+        strcat(final_data, rem);
+        strcat(final_data, crc);
 
     }
 
-    close(clientfd2);
 
+    strcat(frame, protocol.MSG);
+    strcat(frame, protocol.FROM);
+    strcat(frame, client_name);
+    strcat(frame, protocol.FROM_END);
+    strcat(frame, protocol.TO);
+    strcat(frame, user_id);
+    strcat(frame, protocol.TO_END);
+    strcat(frame, protocol.BODY);
+    if(error_flag){
+        errorInsert(final_data);
+        error_flag = 0;
+    }
+    // errorInsert(final_data);
+    strcat(frame, final_data);
+    strcat(frame, protocol.BODY_END);
+    strcat(frame, protocol.MSG_END);
+
+    printf("data: %s\n", frame);
+    send(clientfd2, frame, strlen(frame), 0);
+}
+
+void MSG_Pro_dataSet(){
+    FILE *file = fopen("dataset.txt", "rb");
+    if (file == NULL) {
+        perror("Error opening file");
+    }
+    char user_id[9] = {};
+    user_id[0] = '\0';
+    // fflush(stdin);
+    printf("Enter user-id you want to chat: ");
+    fgets(user_id, sizeof(user_id), stdin);
+    fgets(user_id, sizeof(user_id), stdin);
+
+    char msg[65];
+
+    size_t bytesRead;
+
+    while ((bytesRead = fread(msg, 1, 64, file)) > 0) {
+        char frame[700] = {};
+        frame[0] = '\0';
+        msg[bytesRead] = '\0'; // Null-terminate the buffer
+
+        char user_id[9] = {};
+        user_id[0] = '\0';
+
+        char msg1[(int)strlen(msg) * 8 + 24 + 1];
+        msg1[0] = '\0';
+        frameData((int)strlen(msg), msg, msg1);
+
+        char pre[25];
+        char rem[(int)strlen(msg1) + 5 - 23];
+        char final_data[(int)strlen(msg) * 8 + 24 + 1 + 4];
+        final_data[0] = '\0';
+
+        strncpy(pre, msg1, 24);
+        pre[24] = '\0'; // Null-terminate fix
+        strcpy(rem, msg1 + 24);
+
+        //
+        char crc[10];  // Adjust the size based on your CRC polynomial
+        char divisor[5] = "1101";
+        generateCRC(rem, crc, divisor);
+        printf("Generated CRC: %s\n", crc);
+        // printf("pre: %s\n rem: %s\n", pre, rem);
+
+        // Simulate transmission by appending CRC to data
+        // strcat(rem, crc);
+
+        // msg1[500];
+        // msg1[0];
+        strcat(final_data, pre);
+        strcat(final_data, rem);
+        strcat(final_data, crc);
+
+
+        strcat(frame, protocol.MSG);
+        strcat(frame, protocol.FROM);
+        strcat(frame, client_name);
+        strcat(frame, protocol.FROM_END);
+        strcat(frame, protocol.TO);
+        strcat(frame, client_name);
+        strcat(frame, protocol.TO_END);
+        strcat(frame, protocol.BODY);
+        strcat(frame, final_data);
+        strcat(frame, protocol.BODY_END);
+        strcat(frame, protocol.MSG_END);
+
+        printf("data: %s\n", frame);
+        send(clientfd2, frame, strlen(frame), 0);
+        // Send the chunk via the socket
+        // if (send(socket, buffer, bytesRead, 0) == -1) {
+        //     perror("Error sending data");
+        //     break;
+        // }
+    }
+}
+
+void MSG_Pro_Get(char arr[]){
+    char c1[20], c2[20], text[(int)strlen(arr)];
+    const char *fromStart = strstr(arr, protocol.FROM);
+    const char *fromEnd = strstr(arr,protocol.FROM_END);
+    const char *toStart = strstr(arr, protocol.TO);
+    const char *toEnd = strstr(arr, protocol.TO_END);
+    const char *bodyStart = strstr(arr, protocol.BODY);
+    const char *bodyEnd = strstr(arr, protocol.BODY_END);
+    char frame[(int)strlen(arr)];
+    frame[0] = '\0';
+
+    if (fromStart != NULL && fromEnd != NULL) {
+        strncpy(c1, fromStart + 6, fromEnd - (fromStart + 6));
+        c1[fromEnd - (fromStart + 6)] = '\0'; // Null-terminate the string
+    }
+
+    if (bodyStart != NULL && bodyEnd != NULL) {
+        strncpy(text, bodyStart + 6, bodyEnd - (bodyStart + 6));
+        text[bodyEnd - (bodyStart + 6)] = '\0'; // Null-terminate the string
+    }
+
+    char pre[25];
+    char rem[(int)strlen(text) + 5 - 23];
+    char final_data[(int)strlen(text) * 8 + 24 + 1 + 4];
+    final_data[0] = '\0';
+
+    if(crc_flag == 1){
+        strncpy(pre, text, 24);
+        pre[24] = '\0'; // Null-terminate fix
+        strcpy(rem, text + 24);
+
+        char crc[10];  // Adjust the size based on your CRC polynomial
+        char divisor[5] = "1101";
+        // rem[sizeof(rem) - 6] = '1';
+        int errorDetected = detectCRC(rem, divisor);
+        if (errorDetected) {
+            printf("Error detected during CRC check!\n");
+        } else {
+            printf("No error detected during CRC check.\n");
+        }
+
+        // Remove crc from the end
+        int length = strlen(rem);
+        rem[length - 3] = '\0';
+
+        // Conver binary to Char
+        char buffer[length / 8 + 1];
+        deframeData(rem, buffer);
+
+        printf("%s to you: %s\n", c1, buffer);
+    }
+
+    printf("%s to you: %s\n", c1, rem);
+}
+
+
+void Logout_Pro(){
+    char buff[50];
+    buff[0] = '\0';
+    strcat(buff, protocol.LOGOUT);
+    strcat(buff, client_name);
+    strcat(buff, protocol.LOGOUT_END);
+    send(clientfd2, buff, strlen(buff), 0);
 }
 
 void* recv_thread(void* p){
 
     while(1){
 
-        char buf[100] = {};
+        char buf[1000] = {};
 
         if (recv(clientfd2,buf,sizeof(buf),0) <= 0){
             break;
         }
 
-        printf("%s\n",buf);
+        if(strstr(buf, "<LOGIN_LIST>") != NULL){
+            LoginList_Pro(buf);
+        } 
 
+        if(strstr(buf, "<MSG>") != NULL){
+            MSG_Pro_Get(buf);
+        }
     }
 
 }
 
+int check_id(char *id){
+    clientfd2 = socket(PF_INET,SOCK_STREAM,0);
+    struct sockaddr_in addr;
+    addr.sin_family = PF_INET;
+    addr.sin_port = htons(PORT);
+    addr.sin_addr.s_addr = inet_addr(IP);
+
+    if (connect(clientfd2,(meng*)&addr,sizeof(addr)) == -1){
+
+        exit(-1);
+
+    }
+
+    char buff[30];
+    buff[0] = '\0';
+    strcat(buff, protocol.LOG);
+    strcat(buff, id);
+    strcat(buff, protocol.LOG_END);
+    send(clientfd2, buff, strlen(buff), 0);
+
+    char loginFlag[2];
+    recv(clientfd2,loginFlag,strlen(loginFlag),0);
+    // printf("#Log- Recv loginFlag: %s\n", loginFlag);
+    strcpy(client_name, id);
+
+    if (1)
+    {
+        pthread_t tid;
+        pthread_create(&tid,0,recv_thread,&clientfd2);
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 int main(){
+    int loop = 1;
+    while(loop){
+        printf("=== Welcome to One-One chat Application ===\n");
+        printf("1. Login with CRC\n");
+        printf("2. Login with Hamming\n");
+        printf("3. Login with Hamming & CRC\n");
+        printf("4. Exit\n");
+        printf("Please enter: ");
 
-    init();
+        int option;
 
-    // printf("请输入用户名：");
+        scanf("%d", &option);
+        switch (option)
+        {
+            case 1:
+                char id[ID_LENGTH]; // id 8-bits long
+                printf("\nPlease enter your ID: ");
+                scanf("%s", id);
+                // printf("\nYour Id: %s\n", id);
 
-    // scanf("%s",name);
+                if(check_id(id)){
 
-    // printf("\n\n*****************************\n");
+                    int loop2 = 1;
 
-    // printf("欢迎%s 进入群聊\n",name);
+                    while(loop2) {
+                        printf("=== User Id: %s ===\n", id);
+                        printf("1. Show online users\n");
+                        printf("2. Private-chat\n");
+                        printf("3. Test-data set\n");
+                        printf("4. Exit\n");
+                        printf("Please enter: \n");
 
-    // printf("  输入quit 退出\n");
+                        scanf("%d", &option);
 
-    // printf("\n*****************************\n\n");
+                        switch (option)
+                        {
+                            case 1:
+                                char buf[500] = {};
+                                printf("Show online users - fun\n");
+                                strcat(buf, protocol.LOGIN_LIST);
+                                strcat(buf, client_name);
+                                strcat(buf, protocol.LOGIN_LIST_END);
+                                printf("socket : %d\n", clientfd2);
+                                printf("mes : %s\n", buf);
+                                send(clientfd2, buf, strlen(buf), 0);
+                                break;
+                            case 2:
+                                
+                                MSG_Pro();
+                                break;
+                            case 3:
+                                MSG_Pro_dataSet();
+                                break;
+                            case 4:
+                                printf("exit\n");
+                                Logout_Pro();
+                                close(clientfd2);
+                                loop2 = 0;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                } else {
+                    printf("=== Invalid Id ===\n");
+                }
+                break;
 
-    start();
+            case 2:
+                
+                break;
+            case 3:     
+                
+                break;
+
+            case 4:
+                printf("Exit\n");
+                loop = 0;
+                break;
+            default:
+                printf("Invalid\n");
+        }
+    }
+
 
     return 0;
 
