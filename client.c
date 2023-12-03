@@ -86,6 +86,7 @@ void store_chat(char c1[], char c3[], char msg[]) {
 
     char buff[(int)strlen(ctime(&nowtime)) + (int)strlen(msg)];
     // strcat(buff, ctime(&nowtime));
+    buff[0] = '\0';
     char c[] = ": ";
     strcat(buff, timeString);
     strcat(buff, c);
@@ -161,7 +162,7 @@ void MSG_Pro_CRC(){
         char crc[10];  // Adjust the size based on your CRC polynomial
         char divisor[5] = "1101";
         generateCRC(rem, crc, divisor);
-        printf("Generated CRC: %s\n", crc);
+        // printf("Generated CRC: %s\n", crc);
         // printf("pre: %s\n rem: %s\n", pre, rem);
 
         // Simulate transmission by appending CRC to data
@@ -339,6 +340,34 @@ void MSG_Pro_Get_ham(char arr[]){
     }
 }
 
+void MSG_Pro_Get_ham_Node(char arr[]){
+    char c1[20], c2[20], text[(int)strlen(arr)];
+    const char *fromStart = strstr(arr, protocol.FROM);
+    const char *fromEnd = strstr(arr,protocol.FROM_END);
+    const char *toStart = strstr(arr, protocol.TO);
+    const char *toEnd = strstr(arr, protocol.TO_END);
+    const char *bodyStart = strstr(arr, protocol.BODY);
+    const char *bodyEnd = strstr(arr, protocol.BODY_END);
+    char frame[(int)strlen(arr)];
+    frame[0] = '\0';
+
+    if (fromStart != NULL && fromEnd != NULL) {
+        strncpy(c1, fromStart + 6, fromEnd - (fromStart + 6));
+        c1[fromEnd - (fromStart + 6)] = '\0'; // Null-terminate the string
+    }
+
+    if (toStart != NULL && toEnd != NULL) {
+        strncpy(c2, toStart + 4, toEnd - (toStart + 4));
+        c2[toEnd - (toStart + 4)] = '\0'; // Null-terminate the string
+    }
+
+    if (bodyStart != NULL && bodyEnd != NULL) {
+        strncpy(text, bodyStart + 6, bodyEnd - (bodyStart + 6));
+        text[bodyEnd - (bodyStart + 6)] = '\0'; // Null-terminate the string
+    }
+    printf("%s sends to you: %s\n", c1, text);
+}
+
 void MSG_Pro_dataSet(){
 
     char temp[9] = {};
@@ -385,7 +414,7 @@ void MSG_Pro_dataSet(){
         char crc[10];  // Adjust the size based on your CRC polynomial
         char divisor[5] = "1101";
         generateCRC(rem, crc, divisor);
-        printf("Generated CRC: %s\n", crc);
+        // printf("Generated CRC: %s\n", crc);
         // printf("pre: %s\n rem: %s\n", pre, rem);
 
         // Simulate transmission by appending CRC to data
@@ -413,7 +442,7 @@ void MSG_Pro_dataSet(){
         strcat(frame, protocol.BODY_END);
         strcat(frame, protocol.MSG_END);
 
-        printf("data: %s\n", frame);
+        // printf("data: %s\n", frame);
         send(clientfd2, frame, strlen(frame), 0);
         // Send the chunk via the socket
         // if (send(socket, buffer, bytesRead, 0) == -1) {
@@ -485,6 +514,34 @@ void MSG_Pro_Get_crc(char arr[]){
     // printf("%s to you: %s\n", c1, rem);
 }
 
+void MSG_Pro_Get_crc_Node(char arr[]){
+    char c1[20], c2[20], text[(int)strlen(arr)];
+    const char *fromStart = strstr(arr, protocol.FROM);
+    const char *fromEnd = strstr(arr,protocol.FROM_END);
+    const char *toStart = strstr(arr, protocol.TO);
+    const char *toEnd = strstr(arr, protocol.TO_END);
+    const char *bodyStart = strstr(arr, protocol.BODY);
+    const char *bodyEnd = strstr(arr, protocol.BODY_END);
+    char frame[(int)strlen(arr)];
+    frame[0] = '\0';
+
+    if (fromStart != NULL && fromEnd != NULL) {
+        strncpy(c1, fromStart + 6, fromEnd - (fromStart + 6));
+        c1[fromEnd - (fromStart + 6)] = '\0'; // Null-terminate the string
+    }
+
+    if (toStart != NULL && toEnd != NULL) {
+        strncpy(c2, toStart + 4, toEnd - (toStart + 4));
+        c2[toEnd - (toStart + 4)] = '\0'; // Null-terminate the string
+    }
+
+    if (bodyStart != NULL && bodyEnd != NULL) {
+        strncpy(text, bodyStart + 6, bodyEnd - (bodyStart + 6));
+        text[bodyEnd - (bodyStart + 6)] = '\0'; // Null-terminate the string
+    }
+    printf("%s sends to you: %s\n", c1, text);
+}
+
 void Logout_Pro(){
     char buff[50];
     buff[0] = '\0';
@@ -509,7 +566,7 @@ void* recv_thread(void* p){
         } 
 
         if(strstr(buf, "<ENCODE>CRC</ENCODE>") != NULL){
-            MSG_Pro_Get_crc(buf);
+            MSG_Pro_Get_crc_Node(buf);
         }
 
         if(strstr(buf, "<ENCODE>HAM</ENCODE>") != NULL){

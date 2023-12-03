@@ -74,7 +74,35 @@ struct ClientInfo {
 
 struct ClientInfo clients[6];
 
-void connect_Node(){
+void replace(char temp []){
+    for (int i = 0; temp[i] != '\0'; i++) {
+        // Print "buffer: " at the beginning of each line
+        if (i % 5 == 0) {
+            // printf("buffer: ");
+        }
+
+        // Convert vowels to uppercase
+        char currentChar = temp[i];
+        if (currentChar == 'a' || currentChar == 'e' || currentChar == 'i' || currentChar == 'o' || currentChar == 'u') {
+            currentChar = toupper(currentChar);
+            temp[i] = currentChar;
+        }
+
+        // printf("%c", currentChar);
+        sleep(0.8);
+        // Print a newline every 5 characters
+        if ((i + 1) % 5 == 0) {
+            // printf("\n");
+        }
+    }
+
+    // Print a newline if the last line is not complete
+    if (strlen(temp) % 5 != 0) {
+        printf("\n");
+    }
+}
+
+void connect_Node(char buff[]){
     clientfd2 = socket(PF_INET,SOCK_STREAM,0);
     struct sockaddr_in addr;
     addr.sin_family = PF_INET;
@@ -87,7 +115,7 @@ void connect_Node(){
 
     }
 
-    char buff[30] = "Hello Node!";
+    // char buff[30] = "Hello Node!";
     // buff[0] = '\0';
     send(clientfd2, buff, strlen(buff), 0);
 }
@@ -121,6 +149,7 @@ void store_chat(char c1[], char c2[], char msg[]) {
     strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", localTimeInfo);
 
     char buff[(int)strlen(ctime(&nowtime)) + (int)strlen(msg)];
+    buff[0] = '\0';
     // strcat(buff, ctime(&nowtime));
     char c[] = ": ";
     strcat(buff, timeString);
@@ -206,7 +235,8 @@ void Login_List_Pro(void* p){
         }
     }
     strcat(buf, protocol.LOGIN_LIST_END);
-    send(fd, buf, strlen(buf), 0);
+    
+    
 }
 
 void MSG_Pro_CRC(char arr[]) {
@@ -266,8 +296,91 @@ void MSG_Pro_CRC(char arr[]) {
 }
 
 void MSG_Pro_CRC_Node(char arr[]){
+    char c1[20], c2[20], text[(int)strlen(arr) + 1];
+    const char *fromStart = strstr(arr, protocol.FROM);
+    const char *fromEnd = strstr(arr,protocol.FROM_END);
+    const char *toStart = strstr(arr, protocol.TO);
+    const char *toEnd = strstr(arr, protocol.TO_END);
+    const char *bodyStart = strstr(arr, protocol.BODY);
+    const char *bodyEnd = strstr(arr, protocol.BODY_END);
+    char frame[(int)strlen(arr) + 1];
+    frame[0] = '\0';
 
+    if (fromStart != NULL && fromEnd != NULL) {
+        strncpy(c1, fromStart + 6, fromEnd - (fromStart + 6));
+        c1[fromEnd - (fromStart + 6)] = '\0'; // Null-terminate the string
+    }
 
+    if (toStart != NULL && toEnd != NULL) {
+        strncpy(c2, toStart + 4, toEnd - (toStart + 4));
+        c2[toEnd - (toStart + 4)] = '\0'; // Null-terminate the string
+    }
+
+    if (bodyStart != NULL && bodyEnd != NULL) {
+        strncpy(text, bodyStart + 6, bodyEnd - (bodyStart + 6));
+        text[bodyEnd - (bodyStart + 6)] = '\0'; // Null-terminate the string
+    }
+
+    strcat(frame, protocol.MSG);
+    strcat(frame, protocol.ENCODE);
+    strcat(frame, "CRC");
+    strcat(frame, protocol.ENCODE_END);
+    strcat(frame, protocol.FROM);
+    strcat(frame, c1);
+    strcat(frame, protocol.FROM_END);
+    strcat(frame, protocol.TO);
+    strcat(frame, c2);
+    strcat(frame, protocol.TO_END);
+    strcat(frame, protocol.BODY);
+
+    char pre[25];
+    char rem[(int)strlen(text) + 5 - 23];
+    char final_data[(int)strlen(text) * 8 + 24 + 1 + 4];
+    final_data[0] = '\0';
+
+        strncpy(pre, text, 24);
+        pre[24] = '\0'; // Null-terminate fix
+        strcpy(rem, text + 24);
+
+        char crc[10];  // Adjust the size based on your CRC polynomial
+        char divisor[5] = "1101";
+        // rem[sizeof(rem) - 6] = '1';
+        int errorDetected = detectCRC(rem, divisor);
+        if (errorDetected) {
+            printf("Error detected during CRC check!\n");
+        } else {
+            printf("No error detected during CRC check.\n");
+        }
+
+        // Remove crc from the end
+        int length = strlen(rem);
+        rem[length - 3] = '\0';
+
+        // Conver binary to Char
+        char buffer[length / 8 + 1];
+        deframeData(rem, buffer);
+
+        printf("Server recvied: %s\n", buffer);
+        connect_Node(buffer);
+        replace(buffer);
+        printf("Recived from node server : %s\n", buffer);
+        strcat(frame, buffer);
+    strcat(frame, protocol.BODY_END);
+    strcat(frame, protocol.MSG_END);
+    frame[sizeof(frame) - 1] = '\0';
+
+    // printf("Recv :%s\n", f);
+    // int a = randomNum(0, 4);
+    // printf("Error has been detected in index %d\n", a);
+    // printf("Hamming correct\n");
+
+    for (int i = 0; i < 6; i++)
+    {
+        if(strcmp(clients[i].name, c2) == 0){
+            send(clients[i].socket, frame, strlen(frame), 0);
+            store_chat(c1, c2, buffer);
+        }
+    }
 }
 
 void MSG_Pro_HAM(char arr[])  {
@@ -325,6 +438,95 @@ void MSG_Pro_HAM(char arr[])  {
         }
     }
 }
+
+void MSG_Pro_HAM_Node(char arr[]){
+    char c1[20], c2[20], text[(int)strlen(arr) + 1];
+    const char *fromStart = strstr(arr, protocol.FROM);
+    const char *fromEnd = strstr(arr,protocol.FROM_END);
+    const char *toStart = strstr(arr, protocol.TO);
+    const char *toEnd = strstr(arr, protocol.TO_END);
+    const char *bodyStart = strstr(arr, protocol.BODY);
+    const char *bodyEnd = strstr(arr, protocol.BODY_END);
+    char frame[(int)strlen(arr) + 1];
+    frame[0] = '\0';
+
+    if (fromStart != NULL && fromEnd != NULL) {
+        strncpy(c1, fromStart + 6, fromEnd - (fromStart + 6));
+        c1[fromEnd - (fromStart + 6)] = '\0'; // Null-terminate the string
+    }
+
+    if (toStart != NULL && toEnd != NULL) {
+        strncpy(c2, toStart + 4, toEnd - (toStart + 4));
+        c2[toEnd - (toStart + 4)] = '\0'; // Null-terminate the string
+    }
+
+    if (bodyStart != NULL && bodyEnd != NULL) {
+        strncpy(text, bodyStart + 6, bodyEnd - (bodyStart + 6));
+        text[bodyEnd - (bodyStart + 6)] = '\0'; // Null-terminate the string
+    }
+
+    strcat(frame, protocol.MSG);
+    strcat(frame, protocol.ENCODE);
+    strcat(frame, "CRC");
+    strcat(frame, protocol.ENCODE_END);
+    strcat(frame, protocol.FROM);
+    strcat(frame, c1);
+    strcat(frame, protocol.FROM_END);
+    strcat(frame, protocol.TO);
+    strcat(frame, c2);
+    strcat(frame, protocol.TO_END);
+    strcat(frame, protocol.BODY);
+
+    char pre[25];
+    char rem[(int)strlen(text) + 5 - 23];
+    char final_data[(int)strlen(text) * 8 + 24 + 1 + 4];
+    final_data[0] = '\0';
+
+        strncpy(pre, text, 24);
+        pre[24] = '\0'; // Null-terminate fix
+        strcpy(rem, text + 24);
+
+        char crc[10];  // Adjust the size based on your CRC polynomial
+        char divisor[5] = "1101";
+        // rem[sizeof(rem) - 6] = '1';
+        int errorDetected = detectCRC(rem, divisor);
+        if (errorDetected) {
+            printf("Error detected during CRC check!\n");
+        } else {
+            printf("No error detected during CRC check.\n");
+        }
+
+        // Remove crc from the end
+        int length = strlen(rem);
+        rem[length - 3] = '\0';
+
+        // Conver binary to Char
+        char buffer[length / 8 + 1];
+        deframeData(rem, buffer);
+
+        printf("Server recvied: %s\n", buffer);
+        connect_Node(buffer);
+        replace(buffer);
+        printf("Recived from node server : %s\n", buffer);
+        strcat(frame, buffer);
+    strcat(frame, protocol.BODY_END);
+    strcat(frame, protocol.MSG_END);
+    frame[sizeof(frame) - 1] = '\0';
+
+    // printf("Recv :%s\n", f);
+    // int a = randomNum(0, 4);
+    // printf("Error has been detected in index %d\n", a);
+    // printf("Hamming correct\n");
+
+    for (int i = 0; i < 6; i++)
+    {
+        if(strcmp(clients[i].name, c2) == 0){
+            send(clients[i].socket, frame, strlen(frame), 0);
+            store_chat(c1, c2, buffer);
+        }
+    }
+}
+
 
 void Logout_Pro(char temp[]){
     // printf("\n\n** Logout **\n");
@@ -436,11 +638,12 @@ void* server_thread(void* p){
             } else if(strstr(buf, "<ENCODE>CRC</ENCODE>") != NULL){
 
                 printf("Recv: %s\n", buf);
-                MSG_Pro_CRC(buf);
+                // MSG_Pro_CRC(buf);
+                MSG_Pro_CRC_Node(buf);
             } else if(strstr(buf, "<ENCODE>HAM</ENCODE>") != NULL){
 
                 printf("Recv: %s\n", buf);
-                MSG_Pro_HAM(buf);
+                MSG_Pro_HAM_Node(buf);
             } else if (strstr(buf, "<LOGOUT>") != NULL || flag <= 0)
             {
 
@@ -503,7 +706,7 @@ void server(){
         // printf("Login #: %d\n", login);
         // valid Id
         if(login){
-            connect_Node();
+            // connect_Node();
             char info[100] = {};
             info[0] = '\0';
 

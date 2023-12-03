@@ -25,6 +25,7 @@ typedef struct {
 
 
 /* Node server config */
+int fd;
 int serverfd;
 int clientfd[100];
 int size = 6;
@@ -35,32 +36,42 @@ int client_count = 0;
 time_t nowtime;
 
 /*queue*/
-char temp[6];
-int in = 0;
+char temp[100];
 int flagEnd = 0;
 Queue q1, q2, q3, q4, q5;
 sem_t s1, s2, s3, s4, s5;
 
 
 void replace(){
-    for (int i = 0; temp[i] != '\0'; ++i) {
-        if (temp[i] == 'e') {
-            temp[i] = 'E';
-        } else if (temp[i] == 'a'){
-            temp[i] = 'A';
-        }else if (temp[i] == 'i'){
-            temp[i] = 'I';
-        }else if (temp[i] == 'o'){
-            temp[i] = 'O';
-        }else if (temp[i] == 'u'){
-            temp[i] = 'U';
+    for (int i = 0; temp[i] != '\0'; i++) {
+        // Print "buffer: " at the beginning of each line
+        if (i % 5 == 0) {
+            printf("buffer: ");
         }
+
+        // Convert vowels to uppercase
+        char currentChar = temp[i];
+        if (currentChar == 'a' || currentChar == 'e' || currentChar == 'i' || currentChar == 'o' || currentChar == 'u') {
+            currentChar = toupper(currentChar);
+        }
+
+        printf("%c", currentChar);
+        sleep(0.6);
+        // Print a newline every 5 characters
+        if ((i + 1) % 5 == 0) {
+            printf("\n");
+        }
+    }
+
+    // Print a newline if the last line is not complete
+    if (strlen(temp) % 5 != 0) {
+        printf("\n");
     }
 }
 
 void printInfo(){
     replace();
-    printf("Curretn buffer data has been modify: %s\n", temp);
+    // printf("Curretn buffer data has been modify: %s\n", temp);
 }
 
 void replaceChar(Queue q, char target) {
@@ -80,7 +91,8 @@ void replaceChar(Queue q, char target) {
 
 }
 
-int serverEncode(){
+int serverEncode(char buf[]){
+    send(fd, buf, strlen(buf), 0);
     return 1;
 }
 
@@ -139,7 +151,7 @@ void* charU(void* arg) {
 void* writer(void* arg) {
     int isDone = 0;
     while (!isDone){
-        isDone = serverEncode();
+        isDone = serverEncode(temp);
     }
 
     pthread_exit(NULL);
@@ -230,9 +242,10 @@ void init(){
 
 }
 
-void serverDecoder(char temp[]){
-    printf("Server Decoder: %s\n", temp);
-    const char data[] = "welcome, hello! This is text";
+void serverDecoder(char data[]){
+    printf("Server Decoder: %s\n", data);
+    
+    strcat(temp, data);
 
     // Size of the buffer
     const int bufferSize = 5;
@@ -257,12 +270,11 @@ void serverDecoder(char temp[]){
 
     char final[strlen(data)];
     final[0] = '\0';
+    int in = 0;
     // Loop through the data string
     for (int i = 0; i < dataLength; i++) {
         // Enqueue characters into the buffer
-        if(!isMax(&q1)){
-            enqueue(&q1, data[i]);
-        }
+
 
         // If the buffer is full or we reach the end of the data string
         if (q1.current == 5 || i == dataLength - 1) {
@@ -302,7 +314,7 @@ void serverDecoder(char temp[]){
     }
     flagEnd = 1;
     temp[0] = '\0';
-    printf("Final : %s\n", final);
+    // printf("Final : %s\n", final);
 
 }
 
@@ -316,7 +328,7 @@ void node_server(){
         socklen_t len = sizeof(fromaddr);
 
         // printf("Waiting for client to connect...\n");
-        int fd = accept(serverfd,(meng*)&fromaddr,&len);
+        fd = accept(serverfd,(meng*)&fromaddr,&len);
 
 
         if (fd == -1){
@@ -327,14 +339,15 @@ void node_server(){
 
 
         //check Id
-        char id[30] = {};
-        recv(fd, id, sizeof(id), 0);
+        char data[30] = {};
+        recv(fd, data, sizeof(data), 0);
         // char id[30];
         // strcpy(id, temp);
         
-        printf("Recv: %s\n", id);
+        // printf("Recv: %s\n", data);
+        serverDecoder(data);
+        temp[0] = '\0';
         close(fd);
-
     }
 
     close(serverfd);
