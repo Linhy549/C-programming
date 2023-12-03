@@ -98,13 +98,4 @@ char* getFrameData(char fileName[]){
 
 }
 
-// int main(int argc, char *argv[]){ 
-//     // readFile(64, argv[1]);
-//     char* buffer = getFrameData("filename.binf");
-//     // FILE * file = fopen("file.out", "wb");
-//     // int length = strlen(buffer);
-//     // fwrite(buffer, sizeof(char), length - 2, file);
-//     // free(buffer);
-//     // fclose(file);
-// }
 

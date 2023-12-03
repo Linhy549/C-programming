@@ -8,10 +8,23 @@ void addParity(char binaryArray[]);
 
 void sizeToBit(int size, char sizeArr[]);
 
+char binToChar(char arr[]);
+
 /* Data link layer*/
 void frameData(int size, char dataArr[], char output[]);
 
+void deframeData(char arr[], char buffer[]);
+
+void errorInsert(char arr[]);
+
+void errorInsert_ham(char arr[]);
+
 char* getFrameData(char fileName[]);
+
+void generateCRC(char data[], char crc[], char divisor[]);
+
+int detectCRC(char received[], char divisor[]);
+
 /* Error module - to generate an error bit*/
 int randomNum(int left, int right);
 

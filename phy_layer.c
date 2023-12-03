@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-
+#include "encDec.h"
 
 void charToBinary(char c, char binaryArray[]){
     for(int i = 7; i >= 0; i--){
@@ -12,7 +12,7 @@ void charToBinary(char c, char binaryArray[]){
 
 void addParity(char binaryArray[]){
     int count = 0;
-    for(int i = 0; i <= 7; i++){
+    for(int i = 1; i <= 7; i++){
         if(binaryArray[i] == '1') count++;
     }
     if(count % 2 == 0) binaryArray[0] = '1';
@@ -26,3 +26,12 @@ void sizeToBit(int size, char sizeArr[]){
     
 }
 
+char binToChar(char arr[]){
+    int decimalValue = 0;
+    for (int i = 0; i < 8; i++) {
+        decimalValue = (decimalValue << 1) | (arr[i] - '0');
+    }
+
+    // Convert decimal to char
+    return (char)decimalValue;
+}
