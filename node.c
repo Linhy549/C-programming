@@ -26,9 +26,7 @@ typedef struct {
 
 /* Node server config */
 int fd;
-int serverfd;
-int clientfd[100];
-int size = 6;
+int nodefd;
 char* IP = "127.0.0.1";
 short PORT = 6667;
 typedef struct sockaddr meng;
@@ -41,6 +39,67 @@ int flagEnd = 0;
 Queue q1, q2, q3, q4, q5;
 sem_t s1, s2, s3, s4, s5;
 
+void node_server();
+void serverDecoder(char data[]);
+void init();
+int isMax(Queue *q);
+int isQueueEmpty(Queue *q);
+char dequeue(Queue *q);
+void enqueue(Queue *q, char data);
+void initializeQueue(Queue *q);
+void *writer(void *arg);
+void replaceChar(Queue q, char target);
+
+void *charA(void *arg){
+    while(q1.current != 0){
+        printf("\n A \n");
+        sem_wait(&s1);
+        replaceChar(q1, 'a');
+        sem_post(&s1);
+    }
+    pthread_exit(NULL);
+}
+
+void* charE(void* arg) {
+
+    while(q2.current != 0){
+        printf("\n E \n");
+        sem_wait(&s2);
+        replaceChar(q2, 'e');
+        sem_post(&s2);
+    }
+    pthread_exit(NULL);
+}
+
+void* charI(void* arg) {
+
+    while(q2.current != 0){
+        sem_wait(&s2);
+        replaceChar(q2, 'i');
+        sem_post(&s2);
+    }
+    pthread_exit(NULL);
+}
+
+void* charO(void* arg) {
+
+    while(q2.current != 0){
+        sem_wait(&s2);
+        replaceChar(q2, 'o');
+        sem_post(&s2);
+    }
+    pthread_exit(NULL);
+}
+
+void* charU(void* arg) {
+
+    while(q2.current != 0){
+        sem_wait(&s2);
+        replaceChar(q2, 'u');
+        sem_post(&s2);
+    }
+    pthread_exit(NULL);
+}
 
 void replace(){
     for (int i = 0; temp[i] != '\0'; i++) {
@@ -96,58 +155,6 @@ int serverEncode(char buf[]){
     return 1;
 }
 
-void* charA(void* arg) {
-    while(q1.current != 0){
-        printf("\n A \n");
-        sem_wait(&s1);
-        replaceChar(q1, 'a');
-        sem_post(&s1);
-    }
-    pthread_exit(NULL);
-}
-
-void* charE(void* arg) {
-
-    while(q2.current != 0){
-        printf("\n E \n");
-        sem_wait(&s2);
-        replaceChar(q2, 'e');
-        sem_post(&s2);
-    }
-    pthread_exit(NULL);
-}
-
-void* charI(void* arg) {
-
-    while(q2.current != 0){
-        sem_wait(&s2);
-        replaceChar(q2, 'i');
-        sem_post(&s2);
-    }
-    pthread_exit(NULL);
-}
-
-void* charO(void* arg) {
-
-    while(q2.current != 0){
-        sem_wait(&s2);
-        replaceChar(q2, 'o');
-        sem_post(&s2);
-    }
-    pthread_exit(NULL);
-}
-
-void* charU(void* arg) {
-
-    while(q2.current != 0){
-        sem_wait(&s2);
-        replaceChar(q2, 'u');
-        sem_post(&s2);
-    }
-    pthread_exit(NULL);
-}
-
-
 void* writer(void* arg) {
     int isDone = 0;
     while (!isDone){
@@ -157,14 +164,12 @@ void* writer(void* arg) {
     pthread_exit(NULL);
 }
 
-// Function to initialize an empty queue
 void initializeQueue(Queue* q) {
     q->front =  NULL;
     q->rear = NULL;
     q->current = 0;
 }
 
-// Function to enqueue a character
 void enqueue(Queue* q, char data) {
     Node* newNode = (Node*)malloc(sizeof(Node));
     newNode->data = data;
@@ -179,7 +184,6 @@ void enqueue(Queue* q, char data) {
     q->current = q->current + 1;
 }
 
-// Function to dequeue a character
 char dequeue(Queue* q) {
     if (q->front == NULL) {
         // Queue is empty
@@ -200,7 +204,6 @@ char dequeue(Queue* q) {
     return data;
 }
 
-// Function to check if the queue is empty
 int isQueueEmpty(Queue* q) {
     return q->front == NULL;
 }
@@ -213,12 +216,11 @@ int isMax(Queue* q){
     }
 }
 
-
 void init(){
 
-    serverfd = socket(PF_INET,SOCK_STREAM,0);
+    nodefd = socket(PF_INET,SOCK_STREAM,0);
 
-    if (serverfd == -1){
+    if (nodefd == -1){
         perror("Creatling socket failed!");
         exit(-1);
     }
@@ -230,12 +232,12 @@ void init(){
     addr.sin_addr.s_addr = inet_addr(IP);
 
 
-    if (bind(serverfd,(meng*)&addr,sizeof(addr)) == -1){
+    if (bind(nodefd,(meng*)&addr,sizeof(addr)) == -1){
        perror("Binding failed!");
        exit(-1);
     }
 
-    if (listen(serverfd,100) == -1){
+    if (listen(nodefd,100) == -1){
         perror("Listening failed!");
         exit(-1);
     }
@@ -328,7 +330,7 @@ void node_server(){
         socklen_t len = sizeof(fromaddr);
 
         // printf("Waiting for client to connect...\n");
-        fd = accept(serverfd,(meng*)&fromaddr,&len);
+        fd = accept(nodefd,(meng*)&fromaddr,&len);
 
 
         if (fd == -1){
@@ -350,7 +352,7 @@ void node_server(){
         close(fd);
     }
 
-    close(serverfd);
+    close(nodefd);
     // printf("Recv: %s\n", id);
 }
 

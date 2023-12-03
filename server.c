@@ -360,7 +360,7 @@ void MSG_Pro_CRC_Node(char arr[]){
         char buffer[length / 8 + 1];
         deframeData(rem, buffer);
 
-        printf("Server recvied: %s\n", buffer);
+        printf("Server recvied: %s\n", text);
         connect_Node(buffer);
         replace(buffer);
         printf("Recived from node server : %s\n", buffer);
